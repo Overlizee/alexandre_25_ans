@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alexandre — Quart de Siècle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== RESET & ROOT ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --gold:    #c9a84c;
+      --gold2:   #f0d080;
+      --cream:   #f5f0e8;
+      --ink:     #1a1410;
+      --ink2:    #2e2620;
+      --red:     #8b1a1a;
+      --dim:     #7a6e5f;
+      --border:  rgba(201,168,76,0.35);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--ink);
+      color: var(--cream);
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      overflow-x: hidden;
+    }
+
+    /* ===== CASINO OVERLAY ===== */
+    #casino-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--ink);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+
+    #casino-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .casino-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1rem, 2.5vw, 1.4rem);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--gold);
+      opacity: 0.8;
+    }
+
+    /* ---- Slot machine ---- */
+    .slot-machine {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--ink2);
+      border: 2px solid var(--gold);
+      border-radius: 12px;
+      padding: 1.2rem 1.8rem;
+      box-shadow: 0 0 60px rgba(201,168,76,0.15), inset 0 0 40px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .slot-machine::before {
+      content: '';
+      position: absolute;
+      inset: 6px;
+      border: 1px solid rgba(201,168,76,0.2);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    .reel-wrapper {
+      width: clamp(70px, 10vw, 100px);
+      height: clamp(80px, 12vw, 110px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .reel-wrapper::before,
+    .reel-wrapper::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 35%;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .reel-wrapper::before { top: 0; background: linear-gradient(to bottom, var(--ink2), transparent); }
+    .reel-wrapper::after  { bottom: 0; background: linear-gradient(to top, var(--ink2), transparent); }
+
+    .reel {
+      display: flex;
+      flex-direction: column;
+      animation: none;
+    }
+
+    .reel.spinning {
+      animation: spinReel var(--dur, 1.5s) cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+    }
+
+    .reel-item {
+      height: clamp(80px, 12vw, 110px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      color: var(--gold2);
+      text-align: center;
+      padding: 0 0.5rem;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+
+    .slot-divider {
+      width: 2px;
+      height: clamp(80px, 12vw, 110px);
+      background: linear-gradient(to bottom, transparent, var(--gold), transparent);
+      margin: 0 4px;
+    }
+
+    /* highlight bar across middle */
+    .slot-machine .highlight-bar {
+      position: absolute;
+      left: 1.8rem;
+      right: 1.8rem;
+      top: 50%;
+      transform: translateY(-50%);
+      height: clamp(80px, 12vw, 110px);
+      border-top: 1px solid rgba(201,168,76,0.6);
+      border-bottom: 1px solid rgba(201,168,76,0.6);
+      background: rgba(201,168,76,0.05);
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    @keyframes spinReel {
+      0%   { transform: translateY(0); }
+      100% { transform: translateY(var(--travel)); }
+    }
+
+    /* ---- Win flash ---- */
+    .win-flash {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      color: var(--gold2);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 0.5s;
+      text-align: center;
+    }
+    .win-flash.show { opacity: 1; animation: pulse 1s ease-in-out infinite alternate; }
+
+    @keyframes pulse {
+      from { text-shadow: 0 0 10px var(--gold); }
+      to   { text-shadow: 0 0 30px var(--gold2), 0 0 60px var(--gold); }
+    }
+
+    /* ---- Enter button ---- */
+    .enter-btn {
+      margin-top: 0.5rem;
+      padding: 0.9rem 2.8rem;
+      background: transparent;
+      border: 1.5px solid var(--gold);
+      color: var(--gold);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.5s 0.3s, transform 0.5s 0.3s, background 0.2s, color 0.2s;
+    }
+    .enter-btn.show { opacity: 1; transform: translateY(0); }
+    .enter-btn:hover { background: var(--gold); color: var(--ink); }
+
+    /* confetti dots */
+    .confetti-dot {
+      position: fixed;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      animation: confettiFall 1.5s ease-in forwards;
+    }
+    @keyframes confettiFall {
+      0%   { opacity: 1; transform: translateY(0) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+    }
+
+    /* ===== MAIN SITE ===== */
+    #main-site {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    #main-site.visible { opacity: 1; transform: translateY(0); }
+
+    /* ---- Noise texture overlay ---- */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1;
+      opacity: 0.4;
+    }
+
+    /* ---- Hero ---- */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(201,168,76,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-year {
+      font-family: 'Space Mono', monospace;
+      font-size: clamp(6rem, 18vw, 16rem);
+      font-weight: 700;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(201,168,76,0.25);
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      user-select: none;
+      letter-spacing: -0.05em;
+      white-space: nowrap;
+    }
+
+    .hero-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+      position: relative;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.2rem, 6vw, 5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      color: var(--cream);
+      position: relative;
+      max-width: 800px;
+    }
+
+    .hero h1 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero-sub {
+      margin-top: 1.2rem;
+      font-size: clamp(1rem, 2vw, 1.3rem);
+      font-style: italic;
+      color: var(--dim);
+      position: relative;
+    }
+
+    .hero-rule {
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--gold), transparent);
+      margin: 2.5rem auto;
+      position: relative;
+    }
+
+    /* ---- Letter section ---- */
+    .letter-section {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 5rem 2rem 6rem;
+      position: relative;
+    }
+
+    .letter-section::before {
+      content: '❝';
+      position: absolute;
+      top: 4rem;
+      left: 1rem;
+      font-size: 8rem;
+      color: rgba(201,168,76,0.08);
+      font-family: 'Playfair Display', serif;
+      line-height: 1;
+      pointer-events: none;
+    }
+
+    .section-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .letter-text {
+      font-size: clamp(1rem, 1.5vw, 1.15rem);
+      line-height: 1.9;
+      color: rgba(245,240,232,0.85);
+      font-weight: 300;
+    }
+
+    .letter-text p { margin-bottom: 1.6rem; }
+
+    .letter-text p:first-of-type::first-letter {
+      font-family: 'Playfair Display', serif;
+      font-size: 4.5rem;
+      font-weight: 900;
+      color: var(--gold);
+      float: left;
+      line-height: 0.75;
+      margin: 0.15em 0.12em 0 0;
+    }
+
+    /* ---- HOF Sections ---- */
+    .hof-section {
+      padding: 5rem 2rem;
+      max-width: 1300px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .hof-section + .hof-section {
+      border-top: 1px solid var(--border);
+    }
+
+    .hof-header {
+      display: flex;
+      align-items: baseline;
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .hof-number {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--gold);
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+
+    .hof-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.5rem, 3.5vw, 2.5rem);
+      font-weight: 700;
+      color: var(--cream);
+      flex: 1;
+    }
+
+    .hof-title em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    /* ---- Photo grids ---- */
+    .photos-grid {
+      display: grid;
+      gap: 1.2rem;
+    }
+
+    /* default: 3-col */
+    .photos-grid { grid-template-columns: repeat(3, 1fr); }
+
+    /* 1-item → centered */
+    .photos-grid.solo { grid-template-columns: 1fr; max-width: 600px; margin: 0 auto; }
+
+    /* 2-item */
+    .photos-grid.duo { grid-template-columns: repeat(2, 1fr); max-width: 900px; margin: 0 auto; }
+
+    /* masonry-ish override */
+    .photos-grid.tall figure:nth-child(1) { grid-row: span 2; }
+
+    @media (max-width: 768px) {
+      .photos-grid { grid-template-columns: repeat(2, 1fr); }
+      .photos-grid.solo, .photos-grid.duo { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .photos-grid { grid-template-columns: 1fr; }
+    }
+
+    figure {
+      position: relative;
+      overflow: hidden;
+      border-radius: 4px;
+      background: var(--ink2);
+      border: 1px solid rgba(201,168,76,0.12);
+      transition: transform 0.4s ease, box-shadow 0.4s ease;
+    }
+
+    figure:hover {
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.3);
+    }
+
+    figure img, figure video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      min-height: 200px;
+      max-height: 420px;
+      transition: filter 0.4s ease;
+      filter: brightness(0.92) sepia(0.08);
+    }
+
+    figure:hover img, figure:hover video {
+      filter: brightness(1) sepia(0);
+    }
+
+    figcaption {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 2rem 1rem 0.8rem;
+      background: linear-gradient(to top, rgba(15,10,5,0.85) 0%, transparent 100%);
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-size: 0.85rem;
+      color: rgba(245,240,232,0.8);
+      transform: translateY(6px);
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+    }
+
+    figure:hover figcaption {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ---- Reveal animation ---- */
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+    .reveal.in-view { opacity: 1; transform: translateY(0); }
+
+    /* ---- Decorative divider ---- */
+    .ornament {
+      text-align: center;
+      color: var(--gold);
+      font-size: 1.2rem;
+      opacity: 0.5;
+      letter-spacing: 1rem;
+      margin: 1rem 0;
+    }
+
+    /* ---- Footer ---- */
+    footer {
+      text-align: center;
+      padding: 6rem 2rem;
+      position: relative;
+      border-top: 1px solid var(--border);
+    }
+
+    footer::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 60px;
+      background: linear-gradient(to bottom, var(--gold), transparent);
+    }
+
+    .footer-name {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 900;
+      font-style: italic;
+      color: transparent;
+      background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 50%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+
+    .footer-love {
+      margin-top: 1.5rem;
+      font-size: 1rem;
+      color: var(--dim);
+      font-style: italic;
+      letter-spacing: 0.1em;
+    }
+
+    .footer-year {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--gold);
+      opacity: 0.4;
+      letter-spacing: 0.3em;
+      margin-top: 0.8rem;
+    }
+
+    /* ---- Nav dots ---- */
+    .nav-dots {
+      position: fixed;
+      right: 1.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      z-index: 100;
+    }
+    .nav-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: rgba(201,168,76,0.3);
+      border: 1px solid rgba(201,168,76,0.5);
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+    }
+    .nav-dot.active { background: var(--gold); transform: scale(1.4); }
+
+    @media (max-width: 600px) { .nav-dots { display: none; } }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: var(--ink); }
+    ::-webkit-scrollbar-thumb { background: var(--gold); opacity: 0.5; border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- ============================
+     CASINO OVERLAY
+============================= -->
+<div id="casino-overlay">
+  <p class="casino-title">Loading…</p>
+
+  <div class="slot-machine">
+    <div class="highlight-bar"></div>
+
+    <!-- Reel 1 : name -->
+    <div class="reel-wrapper">
+      <div class="reel" id="reel1" style="--dur:1.6s"></div>
+    </div>
+    <div class="slot-divider"></div>
+    <!-- Reel 2 : separator -->
+    <div class="reel-wrapper" style="width:clamp(30px,4vw,50px)">
+      <div class="reel" id="reel2" style="--dur:1.9s"></div>
+    </div>
+    <div class="slot-divider"></div>
+    <!-- Reel 3 : number -->
+    <div class="reel-wrapper">
+      <div class="reel" id="reel3" style="--dur:2.2s"></div>
+    </div>
+    <div class="slot-divider"></div>
+    <!-- Reel 4 : label -->
+    <div class="reel-wrapper">
+      <div class="reel" id="reel4" style="--dur:2.6s"></div>
+    </div>
+  </div>
+
+  <p class="win-flash" id="win-flash">🏆 Alexandre — 25 ans 🏆</p>
+  <button class="enter-btn" id="enter-btn" onclick="enterSite()">Entrer ✦</button>
+</div>
+
+<!-- ============================
+     MAIN SITE
+============================= -->
+<div id="main-site">
+
+  <!-- Navigation dots -->
+  <nav class="nav-dots" id="nav-dots"></nav>
+
+  <!-- HERO -->
+  <section class="hero" id="section-hero">
+    <div class="hero-year">25</div>
+    <p class="hero-eyebrow">Hall of Fame</p>
+    <h1>Joyeux <em>quart de siècle</em>,<br>Alexandre</h1>
+    <p class="hero-sub">25 ans et toujours aussi peu grand</p>
+    <div class="hero-rule"></div>
+  </section>
+
+  <!-- LETTRE -->
+  <section class="letter-section" id="section-lettre">
+    <p class="section-label">La lettre</p>
+    <div class="letter-text">
+      <p>Alors que tu atteins le quart de siècle, je pourrai bientôt dire que je t'ai connu pendant la moitié de nos vies. Ça tombe bien, c'est la moitié dont on se souvient.</p>
+      <p>Selon une lointaine légende, on se serait rencontré en 6ème, autour d'une certaine table de ping-pong… Mais toi comme moi, n'aimons pas les histoires inventées, alors fions-nous plutôt à la science. La photo la plus vieille que j'ai retrouvée de toi dans mon téléphone date du 20 novembre 2018.</p>
+      <p>Mais on s'est rapproché avant, dès le début de la première. En fait, dès que la grande institution Bury-Rosaire a décidé qu'elle ne pouvait plus empêcher ses deux plus grandes légendes de jouer ensemble au quotidien. Depuis, j'ai eu le bonheur de te voir évoluer de connaissance, à pote, à ami, à ami proche, à meilleur pote… jusqu'à aujourd'hui où tu es, depuis quelques années déjà, vraiment devenu mon meilleur ami. Tu es la seule personne sur terre (à la limite il y a Elliot un peu derrière) avec qui je sais que je peux parler de tout, de mes chagrins à mes réussites en passant par mes blagues qui mériteraient parfois (99% du temps) la prison. Je peux le faire en sachant que je ne serai ni jugé (oh que si) ni rabaissé (OH. QUE. SI. on t'a dit), et ça ça vaut extrêmement cher. Merci.</p>
+      <p>Tu es la personne avec laquelle j'ai le plus de souvenirs, comment tous les citer. Les aventures 24h/24 7j/7 sur Ark et Minecraft, sous discord bot qui balance la kiffance en boucle. Les nombreuses soirées au boulot, à bosser ensemble afin de nourrir la famille, parfois difficiles mais toujours historiques. Les émotions avec notre club de cœur, notre première LDC de l'histoire. Liverpool-PSG… Les moments plus difficiles aussi, comme quand j'ai foutu en l'air un partiel pour venir te réconforter parce que t'étais au fond du trou à cause d'une meuf (il est parti à Dieppe juste après hein).</p>
+      <p>Je te l'ai déjà dit, mais tu es aussi une de mes plus grandes sources d'inspiration. C'est toi qui me fait (par intermittence certes) bien manger, lire, aller à la salle… et que dire de Lusituga, c'est vraiment beau ce que tu fais (tu m'a ruiné/scam pour y arriver mais bon). Hâte de décrocher le contrat égérie Lusituga.</p>
+      <p>La seule maison (hors de ma famille) dans laquelle je me sens vraiment accueilli comme chez moi, et où je sais que je pourrais débarquer et être accueilli n'importe quand, est la tienne. Enfin, je dis hors de ma famille, mais est-ce vraiment le cas… vous êtes un peu ma deuxième famille (un esclave appartient à sa famille en soit).</p>
+      <p>J'espère que ces 25 premières années ont été heureuses. En tout cas je ferai tout ce qui est en mon pouvoir pour que les 25 prochaines le soient. Je te souhaite de tout mon cœur de quitter ta prison, j'espère pour rejoindre EDF. Mais je souhaite par dessus tout que tu ne quittes jamais ta niche. J'espère sincèrement qu'Erika sera la tata de mes enfants, vous êtes vraiment un beau couple de choubis.</p>
+      <p>Enfin, je te rappelle que mon plus grand rêve est très simple : que nos familles grandissent côte à côte, heureuses sous le soleil des tropiques. Qu'on parte en vacances à 4 puis avec nos enfants en total bonheur, et qu'on entende nos enfants crier sur un gros hit du nouveau casino 3D qui existera à leur époque. On verra que leur livret A est vide, mais on saura, et on sera heureux… Mais bon, ce rêve sera impossible à cause de mon incapacité à rencontrer des femmes malheureusement. En tout cas sache que c'est premier degré mon plus grand rêve à l'heure actuelle que nos familles grandissent ensemble côte à côte <em>(son pire cauchemar)</em>.</p>
+      <p>Bref, je te laisse parce que tu me harcèles pour une session farm. Merci d'être là pour moi dans les moments difficiles comme dans les beaux moments, je t'aime mon frère !</p>
+    </div>
+  </section>
+
+  <div class="ornament">✦ ✦ ✦</div>
+
+  <!-- S1 -->
+  <section class="hof-section" id="section-s1">
+    <div class="hof-header">
+      <span class="hof-number">01</span>
+      <h2 class="hof-title">Ça commence à <em>dater</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure><img src="images/1.jpg" alt="Au ritz en chillance"><figcaption>Au ritz en chillance</figcaption></figure>
+      <figure><img src="images/2.jpg" alt="Às aaaaaaaaarmas"><figcaption>Às aaaaaaaaarmas</figcaption></figure>
+      <figure><img src="images/3.jpg" alt="Voyage scolaire"><figcaption>Voyage scolaire (je suis pas sûr mais je bluff)</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S2 -->
+  <section class="hof-section" id="section-s2">
+    <div class="hof-header">
+      <span class="hof-number">02</span>
+      <h2 class="hof-title">Le bonheur <em>à plusieurs</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure><img src="images/4.jpg" alt=""><figcaption>Mon activité préférée (non)</figcaption></figure>
+      <figure><img src="images/6.jpg" alt=""><figcaption>La soirée de la discorde (ah non juste du kiff)</figcaption></figure>
+      <figure><img src="images/11.jpg" alt=""><figcaption>La pêche très fructueuse (non)</figcaption></figure>
+      <figure><img src="images/5.jpg" alt=""><figcaption>La meilleure crêperie du monde</figcaption></figure>
+      <figure><img src="images/8.jpg" alt=""><figcaption>Nos premières vacances à 4</figcaption></figure>
+      <figure><img src="images/9.jpg" alt=""><figcaption>Photo dans mon pays d'adoption</figcaption></figure>
+      <figure><img src="images/10.jpg" alt=""><figcaption>En route vers la médaille d'or</figcaption></figure>
+      <figure><img src="images/12.jpg" alt=""><figcaption>Même là on fait la même chose</figcaption></figure>
+      <figure><img src="images/7.jpg" alt=""><figcaption>Ton sport préféré</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S3 -->
+  <section class="hof-section" id="section-s3">
+    <div class="hof-header">
+      <span class="hof-number">03</span>
+      <h2 class="hof-title">Mais aussi <em>à 2</em></h2>
+    </div>
+    <div class="photos-grid reveal duo">
+      <figure><img src="images/13.jpg" alt=""><figcaption>L'époque où tu m'invitais encore aux five</figcaption></figure>
+      <figure><img src="images/14.jpg" alt=""><figcaption>Seule fois de ta vie où tu m'as surpassé</figcaption></figure>
+      <figure>
+        <video controls><source src="images/un.mp4" type="video/mp4"></video>
+        <figcaption>Dépucelage du parc</figcaption>
+      </figure>
+      <figure><img src="images/parc1.jpg" alt=""><figcaption>Tellement de souvenirs dans ce lieu magique</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S4 -->
+  <section class="hof-section" id="section-s4">
+    <div class="hof-header">
+      <span class="hof-number">04</span>
+      <h2 class="hof-title">Là pour t'aider <em>dès que possible…</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure><img src="images/15.jpg" alt=""><figcaption>Cet homme ne pense qu'au M sur cette photo</figcaption></figure>
+      <figure><img src="images/16.jpg" alt=""><figcaption>Non ce n'est pas un montage</figcaption></figure>
+      <figure><img src="images/17.jpg" alt=""><figcaption>Le projet qui devait nous rendre riche et qu'on nous a volé…</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S5 -->
+  <section class="hof-section" id="section-s5">
+    <div class="hof-header">
+      <span class="hof-number">05</span>
+      <h2 class="hof-title">… mais aussi pour te <em>faire rager</em></h2>
+    </div>
+    <div class="photos-grid reveal solo">
+      <figure>
+        <video controls><source src="images/deux.mov" type="video/mp4"></video>
+        <figcaption>Vidéo légendaire</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- S6 -->
+  <section class="hof-section" id="section-s6">
+    <div class="hof-header">
+      <span class="hof-number">06</span>
+      <h2 class="hof-title">… parce que tu veux <em>ruiner ma vie</em></h2>
+    </div>
+    <div class="photos-grid reveal duo">
+      <figure><img src="images/18.jpg" alt=""><figcaption>Se passe de commentaire</figcaption></figure>
+      <figure><img src="images/19.jpg" alt=""><figcaption>SE PASSE DE COMMENTAIRE</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S7 -->
+  <section class="hof-section" id="section-s7">
+    <div class="hof-header">
+      <span class="hof-number">07</span>
+      <h2 class="hof-title">De la France <em>à l'autre bout du monde</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure>
+        <video controls><source src="images/trois.mp4" type="video/mp4"></video>
+        <figcaption>Le peuple malais entier connait le grand Vecrick</figcaption>
+      </figure>
+      <figure><img src="images/23.jpg" alt=""><figcaption>Le jour où Erika a dit que j'étais un 10/10</figcaption></figure>
+      <figure><img src="images/25.jpg" alt=""><figcaption>Le hamac dans lequel j'attendais un simple « joyeux anniversaire »</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S8 -->
+  <section class="hof-section" id="section-s8">
+    <div class="hof-header">
+      <span class="hof-number">08</span>
+      <h2 class="hof-title">Investir <em>ensemble</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure><img src="images/26.jpg" alt=""><figcaption>Fallait avoir la vision</figcaption></figure>
+      <figure>
+        <video controls><source src="images/quatre.MP4" type="video/mp4"></video>
+        <figcaption>Début d'une loooooongue aventure</figcaption>
+      </figure>
+      <figure><img src="images/28.jpg" alt=""><figcaption>Une des plus belles citations de l'histoire de l'humanité</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- S9 -->
+  <section class="hof-section" id="section-s9">
+    <div class="hof-header">
+      <span class="hof-number">09</span>
+      <h2 class="hof-title">Tu <em>m'inspires</em></h2>
+    </div>
+    <div class="photos-grid reveal">
+      <figure><img src="images/29.jpg" alt=""><figcaption>Tellement beau, t'as jamais rien lâché (on était là depuis toutou trendy)</figcaption></figure>
+      <figure><img src="images/30.jpg" alt=""><figcaption>La lecture, le sport, l'abnégation… voici mon coach et inspiration sur tellement de sujets.</figcaption></figure>
+      <figure><img src="images/31.jpg" alt=""><figcaption>Un corps de rêve, je bave dessus tous les soirs.</figcaption></figure>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-name">Alexandre</div>
+    <p class="footer-love">Avec amour ❤️ je t'aime</p>
+    <p class="footer-year">2000 — 2025</p>
+  </footer>
+
+</div><!-- /main-site -->
+
+<script>
+/* =============================================
+   SLOT MACHINE
+============================================= */
+const NAMES   = ['Kevin','Jordan','Mathieu','Thomas','Lucas','Julien','Maxime','Pierre','Alex'];
+const SEPS    = ['—','·','×','✦','—'];
+const NUMBERS = ['18','21','30','42','07','16','99','69','25'];
+const LABELS  = ['ans','mois','jours','vies','ans'];
+
+// Final target values (must be last in the list we build)
+const FINAL = {
+  r1: 'Alex',
+  r2: '—',
+  r3: '25',
+  r4: 'ans'
+};
+
+function buildReel(el, pool, finalVal, count = 14) {
+  const items = [];
+  for (let i = 0; i < count - 1; i++) {
+    items.push(pool[Math.floor(Math.random() * pool.length)]);
+  }
+  items.push(finalVal); // last item = winner
+
+  el.innerHTML = items.map(t =>
+    `<div class="reel-item">${t}</div>`
+  ).join('');
+}
+
+function spinReel(el, itemHeight) {
+  const items = el.querySelectorAll('.reel-item');
+  const n = items.length;
+  // travel so that last item is centred in viewport
+  const travel = -((n - 1) * itemHeight);
+  el.style.setProperty('--travel', travel + 'px');
+  el.classList.add('spinning');
+}
+
+function startSlot() {
+  const itemHeight = document.querySelector('.reel-wrapper').offsetHeight;
+
+  const reels = [
+    { el: document.getElementById('reel1'), pool: NAMES,   final: FINAL.r1 },
+    { el: document.getElementById('reel2'), pool: SEPS,    final: FINAL.r2 },
+    { el: document.getElementById('reel3'), pool: NUMBERS, final: FINAL.r3 },
+    { el: document.getElementById('reel4'), pool: LABELS,  final: FINAL.r4 },
+  ];
+
+  reels.forEach(r => buildReel(r.el, r.pool, r.final));
+
+  // slight delay before spinning
+  setTimeout(() => {
+    document.querySelector('.casino-title').textContent = '🎰 Bonne chance…';
+    reels.forEach(r => spinReel(r.el, itemHeight));
+  }, 600);
+
+  // last reel dur = 2.6s → show win after ~3s
+  setTimeout(() => {
+    document.getElementById('win-flash').classList.add('show');
+    spawnConfetti();
+    setTimeout(() => {
+      document.getElementById('enter-btn').classList.add('show');
+    }, 600);
+  }, 3200);
+}
+
+function spawnConfetti() {
+  const colors = ['#c9a84c','#f0d080','#8b1a1a','#f5f0e8','#fff'];
+  for (let i = 0; i < 80; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'confetti-dot';
+    dot.style.left = Math.random() * 100 + 'vw';
+    dot.style.top = '-10px';
+    dot.style.background = colors[Math.floor(Math.random() * colors.length)];
+    dot.style.animationDuration = (0.8 + Math.random() * 1.2) + 's';
+    dot.style.animationDelay = (Math.random() * 0.8) + 's';
+    document.body.appendChild(dot);
+    setTimeout(() => dot.remove(), 3000);
+  }
+}
+
+function enterSite() {
+  document.getElementById('casino-overlay').classList.add('hidden');
+  const site = document.getElementById('main-site');
+  site.classList.add('visible');
+  setTimeout(setupScrollEffects, 100);
+}
+
+/* =============================================
+   SCROLL EFFECTS
+============================================= */
+function setupScrollEffects() {
+  // Reveal on scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('in-view');
+        observer.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Nav dots
+  const sections = Array.from(document.querySelectorAll('[id^="section-"]'));
+  const navDots = document.getElementById('nav-dots');
+  const labels  = ['Intro','Lettre','1','2','3','4','5','6','7','8','9'];
+
+  sections.forEach((sec, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'nav-dot';
+    dot.title = labels[i] || '';
+    dot.onclick = () => sec.scrollIntoView({ behavior: 'smooth' });
+    navDots.appendChild(dot);
+  });
+
+  const dotEls = navDots.querySelectorAll('.nav-dot');
+
+  const navObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      const idx = sections.indexOf(e.target);
+      if (e.isIntersecting && idx >= 0) {
+        dotEls.forEach(d => d.classList.remove('active'));
+        dotEls[idx]?.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-40% 0px -40% 0px' });
+
+  sections.forEach(s => navObserver.observe(s));
+}
+
+/* start slot immediately */
+window.addEventListener('DOMContentLoaded', startSlot);
+</script>
+
+</body>
+</html>
